@@ -1,0 +1,232 @@
+LAMMPS (14 May 2021)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+# 3D Lennard-Jones NVT
+
+#NOTES:
+# The variable "rho" is read from the command line argument:
+#  E.G., "lmp_serial -in foo -var rho bar1 -var temp bar2"
+#  foo = input filename
+#  bar1 = input value for variable rho (density)
+#  bar2 = input value for variable temp (temperature)
+# The restart file specifies the following:
+#   System volume, conformation, periodicity
+#   Initial configuration and velocities
+#   The molecular model (i.e., pair potential, molecular topology)
+# The configuration in the restart file is a relaxed configuration
+#   for the temperature at which the configuration was generated (T*=1.50).
+
+read_restart    restart/in.nvt.dens_${rho}               #Specify the LAMMPS restart file
+read_restart    restart/in.nvt.dens_0.100               
+Reading restart file ...
+  restart file = 14 May 2021, LAMMPS = 14 May 2021
+  restoring atom style atomic from restart
+  orthogonal box = (0.0000000 0.0000000 0.0000000) to (10.000000 10.000000 10.000000)
+  2 by 2 by 2 MPI processor grid
+  restoring pair style lj/cut from restart
+  100 atoms
+  read_restart CPU = 0.002 seconds
+reset_timestep  0                                #Reset the time step counter to 0
+
+#Run Parameters
+variable        ext_temp equal ${temp}           #Specify the Thermostat Temperature
+variable        ext_temp equal 0.95           
+variable        Nevery equal 20                  #Specify the distance (in timesteps) between samples for computing ensemble averages
+                                                 #  (Interval between samples in a block)
+variable        Nrepeat equal 50                 #Specify the number of samples per output  of thermodynamic averages
+                                                 #  (Samples per block output)
+variable        Nfreq equal ${Nevery}*${Nrepeat} #Specify the dump interval (in timesteps)
+variable        Nfreq equal 20*${Nrepeat} 
+variable        Nfreq equal 20*50 
+                                                 #  (Some people call these blocks)
+variable        nequil equal 100000             #Equilibration length (in timesteps)
+variable        nprod  equal 1000000            #Production length (in timesteps)
+variable        nrun equal ${nequil}+${nprod}    #Total run length: equilibration + production (in timesteps)
+variable        nrun equal 100000+${nprod}    
+variable        nrun equal 100000+1000000    
+variable        Tdamp equal 0.500                #Specify the Thermostat damping parameter (in time units ; not timesteps)
+
+#Neighbor List
+neighbor        0.3 bin                          #Specify the skin distance (padding beyond the cutoff)
+neigh_modify    delay 0 every 20 check no        #Adjust the default neighbor list:
+                                                 #  (delay 0)
+                                                 #  (every 20)
+                                                 #  (check no)
+
+#Ensemble Setup: NVT ensemble, thermostatted by Nose-Hoover a chained thermostat, set at temperature $ext_temp
+fix		1 all nvt temp ${ext_temp} ${ext_temp} ${Tdamp}
+fix		1 all nvt temp 0.95 ${ext_temp} ${Tdamp}
+fix		1 all nvt temp 0.95 0.95 ${Tdamp}
+fix		1 all nvt temp 0.95 0.95 0.5
+Resetting global fix info from restart file:
+  fix style: nvt, fix ID: 1
+
+#Output
+variable        PotentialEnergy equal epair         #Call the intermolecular potential energy $PotentialEnergy
+variable        Pressure equal press                #Call the pressure $Pressure
+variable        Temperature equal temp              #Call the instantaneous temperature $Temperature
+fix             2 all ave/time ${Nevery} ${Nrepeat} ${Nfreq} v_Temperature v_PotentialEnergy v_Pressure file out/ave.dens_${rho}_${temp}.out
+fix             2 all ave/time 20 ${Nrepeat} ${Nfreq} v_Temperature v_PotentialEnergy v_Pressure file out/ave.dens_${rho}_${temp}.out
+fix             2 all ave/time 20 50 ${Nfreq} v_Temperature v_PotentialEnergy v_Pressure file out/ave.dens_${rho}_${temp}.out
+fix             2 all ave/time 20 50 1000 v_Temperature v_PotentialEnergy v_Pressure file out/ave.dens_${rho}_${temp}.out
+fix             2 all ave/time 20 50 1000 v_Temperature v_PotentialEnergy v_Pressure file out/ave.dens_0.100_${temp}.out
+fix             2 all ave/time 20 50 1000 v_Temperature v_PotentialEnergy v_Pressure file out/ave.dens_0.100_0.95.out
+thermo          10000                               #Specify the interval between screen output of thermodynamic averages
+thermo_style    custom step temp epair press        #Print the timestep, temperature, potential energy, and pressure to screen
+
+#Run it!
+run             ${nrun}                          #Run the simulation
+run             1100000                          
+All restart file global fix info was re-assigned
+Neighbor list info ...
+  update every 20 steps, delay 0 steps, check no
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 2.8
+  ghost atom cutoff = 2.8
+  binsize = 1.4, bins = 8 8 8
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 2.561 | 2.561 | 2.561 Mbytes
+Step Temp E_pair Press 
+       0    1.4553042  -0.80006882   0.11897129 
+   10000   0.98268124  -0.81890849  0.037173693 
+   20000   0.88880718  -0.91771244  0.040085224 
+   30000     1.040019  -0.89128512  0.052238233 
+   40000   0.94885392   -1.0316859  0.066323103 
+   50000   0.88761973  -0.86459712  0.053938862 
+   60000   0.96424632  -0.75025167  0.095706464 
+   70000    1.0385005  -0.83245535  0.027802206 
+   80000    1.0160952  -0.83545301  0.031507248 
+   90000   0.88822288  -0.82332337  0.029522896 
+  100000   0.92125547  -0.80979285  0.065337394 
+  110000   0.89359059  -0.83242265  0.054527768 
+  120000   0.96728042  -0.74505659   0.09194492 
+  130000   0.97444144  -0.93892135  0.050806172 
+  140000    1.0209101  -0.97219127  0.055371256 
+  150000     1.025766  -0.72234351  0.096991348 
+  160000   0.85430914  -0.88833106  0.023823221 
+  170000   0.87624984  -0.94796509  0.028954779 
+  180000    1.0747987   -1.0412868  0.073672023 
+  190000   0.86040953   -0.9724751  0.031020191 
+  200000    1.1003489  -0.83099509  0.032794561 
+  210000   0.92030226    -0.831316  0.033332487 
+  220000   0.90365039   -1.0549226  0.043273494 
+  230000    0.9539423  -0.91061743  0.042648501 
+  240000   0.91786373  -0.89983501   0.03476374 
+  250000    0.9422241    -1.223234  0.088404974 
+  260000    0.9442845  -0.87248927  0.093791364 
+  270000   0.85950859  -0.99031135  0.024697289 
+  280000   0.90977026  -0.79655438  0.058851185 
+  290000   0.95068529    -0.764437  0.065206024 
+  300000   0.99266929  -0.86301257  0.058419279 
+  310000   0.83973396   -1.0327802  0.021860581 
+  320000   0.90078855  -0.85428701   0.10195999 
+  330000    1.0184648  -0.97652006  0.084269093 
+  340000   0.91194562  -0.92052663  0.046107277 
+  350000   0.87440052  -0.92570139 0.0042036753 
+  360000    1.0421569  -0.92339896  0.085239212 
+  370000   0.94692518  -0.97275444  0.075104668 
+  380000   0.87738232   -1.0165834  0.030596903 
+  390000    1.0843839  -0.77322596  0.068636881 
+  400000   0.87864231  -0.88594021  0.059231945 
+  410000    0.9458441  -0.84999375  0.065619322 
+  420000   0.84603771  -0.94404062  0.034486145 
+  430000   0.86244178  -0.96995775  0.057742267 
+  440000   0.88158521     -1.00095  0.056386699 
+  450000    1.0662176  -0.95419277  0.044188484 
+  460000     1.073323  -0.71332993  0.096618999 
+  470000   0.95412539  -0.90362315  0.049433198 
+  480000    1.0170954  -0.80953704  0.067828342 
+  490000    1.0405898  -0.78812851  0.074888213 
+  500000   0.93539613  -0.89447943  0.043889274 
+  510000     0.877015  -0.98387319  0.030292321 
+  520000   0.99174367  -0.97413942  0.035053679 
+  530000   0.87119081  -0.99577425  0.055061869 
+  540000     1.079706  -0.98626647  0.065589563 
+  550000   0.90824033  -0.80176115  0.060770234 
+  560000   0.83525247  -0.90986532  0.043211661 
+  570000   0.95282972  -0.94303316  0.065286494 
+  580000   0.76997322   -1.2432989  0.039960347 
+  590000   0.95497007  -0.94224168  0.019993421 
+  600000   0.99088872   -1.0935469 0.0045164837 
+  610000    1.0441324  -0.94209008  0.025123973 
+  620000   0.91118225  -0.86589826  0.083444162 
+  630000   0.86896456  -0.91346186  0.021847973 
+  640000   0.75878724   -1.0500775  0.040120752 
+  650000   0.88181214  -0.83182018  0.073211773 
+  660000   0.96106672  -0.81253375  0.030197458 
+  670000    0.9421745  -0.90526637  0.064779854 
+  680000   0.98499977   -1.0525176  0.039100013 
+  690000   0.93333281  -0.79887825  0.039645594 
+  700000   0.94223147  -0.80280139  0.022793371 
+  710000   0.94909181  -0.82384414  0.052951766 
+  720000    1.0236431  -0.76250438  0.065483513 
+  730000    1.0519098  -0.75790446  0.083570719 
+  740000   0.82508055  -0.90875409  0.041124449 
+  750000   0.87332551  -0.92346691  0.019281744 
+  760000   0.91421517  -0.93164916  0.076037295 
+  770000    0.9817491  -0.90112429  0.062310963 
+  780000    1.0324474  -0.92653767  0.072089033 
+  790000   0.98715088  -0.93889032   0.03371791 
+  800000   0.98028221  -0.99565249  0.047380684 
+  810000     1.031563  -0.68161793  0.079871216 
+  820000    1.0042184   -1.0193472  0.056596624 
+  830000    1.0630858  -0.99920461  0.045878883 
+  840000    1.0970648  -0.87144746  0.037000981 
+  850000   0.84640959  -0.87318768   0.05994437 
+  860000    0.9080858  -0.79162379  0.040417334 
+  870000   0.87510682  -0.84754389  0.034897408 
+  880000    0.8981452  -0.96325142    0.0588661 
+  890000    1.0582937   -0.8571737  0.070264347 
+  900000   0.94090225  -0.78883205  0.068125188 
+  910000   0.96868277  -0.90326139   0.02176757 
+  920000    1.0335768   -1.0287126   0.10763606 
+  930000    0.9851045   -1.0211302  0.045982134 
+  940000    0.9542514  -0.83725951  0.066133381 
+  950000    1.0149137  -0.73983869  0.075458917 
+  960000   0.97721987   -0.9027898  0.056084151 
+  970000   0.91746763  -0.83578969  0.045288536 
+  980000    0.9932818  -0.84304484  0.059120672 
+  990000   0.87293896  -0.84768177  0.031972714 
+ 1000000    1.0700035  -0.81224419  0.083356518 
+ 1010000    0.8858648  -0.81376207  0.042003076 
+ 1020000   0.98913116  -0.82726029  0.054235644 
+ 1030000   0.80172681  -0.93975055   0.07186494 
+ 1040000    1.0197949  -0.89561337  0.043560083 
+ 1050000   0.91803551  -0.82852504  0.064521804 
+ 1060000    1.0711388  -0.74367483  0.059723704 
+ 1070000    1.0184095   -1.0055259  0.036230291 
+ 1080000   0.89148023  -0.84701956  0.035980859 
+ 1090000    1.0668618  -0.90260194  0.039178698 
+ 1100000    0.9365243  -0.95013816  0.042468058 
+Loop time of 22.5986 on 8 procs for 1100000 steps with 100 atoms
+
+Performance: 21027886.818 tau/day, 48675.664 timesteps/s
+99.8% CPU use with 8 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.5909     | 1.6705     | 1.7764     |   5.2 |  7.39
+Neigh   | 0.59984    | 0.61178    | 0.63453    |   1.2 |  2.71
+Comm    | 15.947     | 16.079     | 16.188     |   2.1 | 71.15
+Output  | 0.0026895  | 0.0035801  | 0.0096998  |   3.9 |  0.02
+Modify  | 3.7355     | 3.7684     | 3.8079     |   1.2 | 16.68
+Other   |            | 0.4659     |            |       |  2.06
+
+Nlocal:        12.5000 ave          18 max           7 min
+Histogram: 3 1 0 0 0 0 0 0 1 3
+Nghost:        110.500 ave         123 max          98 min
+Histogram: 3 1 0 0 0 0 0 0 2 2
+Neighs:        71.6250 ave         150 max          20 min
+Histogram: 4 0 0 0 0 1 1 1 0 1
+
+Total # of neighbors = 573
+Ave neighs/atom = 5.7300000
+Neighbor list builds = 55000
+Dangerous builds not checked
+Total wall time: 0:00:22
